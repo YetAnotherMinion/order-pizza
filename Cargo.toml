@@ -1,0 +1,7 @@
+[package]
+name = "order-pizza"
+version = "0.1.0"
+authors = ["YetAnotherMinion <yetanotherminion@gmail.com>"]
+
+[dependencies]
+ncurses = "5.80.0"
