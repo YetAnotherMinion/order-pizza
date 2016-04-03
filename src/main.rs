@@ -1,72 +1,76 @@
 extern crate ncurses;
 
-use std::char;
-use std::env;
-use std::io::Read;
-use std::fs;
-use std::path::Path;
-
-fn open_file() -> fs::File {
-    let args: Vec<_> = env::args().collect();
-    if args.len() != 2 {
-        println!("Usage:\n\t{} <rust file>", args[0]);
-        println!("Example:\n\t{} src/main.rs", args[0]);
-        panic!("Exiting");
-    }
-
-    let reader = fs::File::open(Path::new(&args[1]));
-    /* Return the file contents */
-    reader.ok().expect("Unable to open file")
-}
-
-fn prompt() {
-    ncurses::printw("<-Press Any Key->");
-    ncurses::getch();
-}
+static WINDOW_HEIGHT: i32 = 3;
+static WINDOW_WIDTH: i32 = 10;
 
 fn main() {
-    let reader = open_file().bytes();
-
-    /* Start ncurses */
+    /* Setup ncurses */
     ncurses::initscr();
     ncurses::raw();
-    
-    /* Allow for extended keyboard (like F1) */
+
+    /* Allow use of extended keyboard */
     ncurses::keypad(ncurses::stdscr, true);
     ncurses::noecho();
+
+    /* Set the cursor to be invisible */
+    ncurses::curs_set(ncurses::CURSOR_VISIBILITY::CURSOR_INVISIBLE);
+
+    /* Status/help info */
+    ncurses::printw("Use the arrow keys to move");
+    ncurses::mvprintw(ncurses::LINES - 1, 0, "Press F1 to exit");
+    ncurses::refresh();
 
     /* Get the screen bounds */
     let mut max_x = 0;
     let mut max_y = 0;
     ncurses::getmaxyx(ncurses::stdscr, &mut max_y, &mut max_x);
+
+    /* Start in the center */
+    let mut start_y = (max_y - WINDOW_HEIGHT) / 2;
+    let mut start_x = (max_x - WINDOW_WIDTH) / 2;
+    let mut win = create_win(start_y, start_x);
     
-
-    /* Read the whole file */
-    for ch in reader {
-        if ch.is_err() {
-            break;
+    let mut ch = ncurses::getch();
+    while ch != ncurses::KEY_F(1) {
+        match ch {
+            ncurses::KEY_LEFT => {
+                start_x -= 1;
+                destroy_win(win);
+                win = create_win(start_y, start_x);
+            },
+            ncurses::KEY_RIGHT => {
+                start_x += 1;
+                destroy_win(win);
+                win = create_win(start_y, start_x);
+            },
+            ncurses::KEY_UP => {
+                start_y -= 1;
+                destroy_win(win);
+                win = create_win(start_y, start_x);
+            },
+            ncurses::KEY_DOWN => {
+                start_y += 1;
+                destroy_win(win);
+                win = create_win(start_y, start_x);
+            },
+            _ => {}
         }
-        let ch = ch.unwrap();
-
-        /* Get the current position on screen */
-        let mut cur_x = 0;
-        let mut cur_y = 0;
-        ncurses::getyx(ncurses::stdscr, &mut cur_y, &mut cur_x);
-
-        if cur_y == (max_y - 1) {
-            /* Status bar at the bottom */
-            prompt();
-
-            /* Once a key is pressed, clear the screen and continue */
-            ncurses::clear();
-            ncurses::mv(0, 0);
-        } else {
-            ncurses::addch(ch as ncurses::chtype);
-        }
+        ch = ncurses::getch();
     }
-    
-    /* Terminate ncurses */
-    ncurses::mv(max_y - 1, 0);
-    ncurses::getch();
+
     ncurses::endwin();
+}
+
+fn create_win(start_y: i32, start_x: i32) -> ncurses::WINDOW {
+    let win = ncurses::newwin(WINDOW_HEIGHT, WINDOW_WIDTH, start_y, start_x);
+    ncurses::box_(win, 0, 0);
+    ncurses::wrefresh(win);
+    win
+}
+
+fn destroy_win(win: ncurses::WINDOW) {
+    let ch = ' ' as ncurses::chtype;
+    ncurses::wborder(win, ch, ch, ch, ch, ch, ch, ch, ch);
+    ncurses::wrefresh(win);
+    ncurses::delwin(win);
 }
