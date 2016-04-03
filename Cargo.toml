@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["YetAnotherMinion <yetanotherminion@gmail.com>"]
 
 [dependencies]
+hyper = "0.8.0"
 ncurses = "5.80.0"
