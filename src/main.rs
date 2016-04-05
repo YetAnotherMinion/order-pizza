@@ -1,76 +1,84 @@
 extern crate ncurses;
 
-static WINDOW_HEIGHT: i32 = 3;
-static WINDOW_WIDTH: i32 = 10;
+use ncurses::*;
 
+#[cfg(feature="menu")]
 fn main() {
-    /* Setup ncurses */
+    /* Intialize curses */
     ncurses::initscr();
-    ncurses::raw();
-
-    /* Allow use of extended keyboard */
-    ncurses::keypad(ncurses::stdscr, true);
+    ncurses::start_color();
+    ncurses::cbreak();
     ncurses::noecho();
-
-    /* Set the cursor to be invisible */
+    /* Make the cursor invisible */
     ncurses::curs_set(ncurses::CURSOR_VISIBILITY::CURSOR_INVISIBLE);
+    ncurses::keypad(ncurses::stdscr, true);
+    ncurses::init_pair(1, ncurses::COLOR_RED, ncurses::COLOR_BLACK);
 
-    /* Status/help info */
-    ncurses::printw("Use the arrow keys to move");
-    ncurses::mvprintw(ncurses::LINES - 1, 0, "Press F1 to exit");
+    /* Create items */
+    let mut items: Vec<ncurses::ITEM> = Vec::new();
+    items.push(new_item("Choice 1", "Choice 1 description"));
+    items.push(ncurses::new_item("Choice 2", "Choice 2 description"));
+    items.push(ncurses::new_item("Choice 3", "Choice 3 description"));
+    items.push(ncurses::new_item("Choice 4", "Choice 4 description"));
+    items.push(ncurses::new_item("Choice 5", "Choice 5 description"));
+    
+    /* Crate menu */
+    let my_menu = ncurses::new_menu(&mut items);
+    ncurses::menu_opts_off(my_menu, ncurses::O_SHOWDESC);
+    
+    let my_menu_win = ncurses::newwin(9, 18, 4, 4);
+    ncurses::keypad(my_menu_win, true);
+
+    /* Set main window and sub window */
+    ncurses::set_menu_win(my_menu, my_menu_win);
+    ncurses::set_menu_sub(my_menu, ncurses::derwin(my_menu_win, 5, 0, 2, 2));
+
+    /* Set menu mark to the string " * " */
+    ncurses::set_menu_mark(my_menu_win, " * ");
+    ncurses::box_(my_menu_win, 0, 0);
+    ncurses::mvprintw(ncurses::LINES - 3, 0, "Press <ENTER> to see the option selected");
+    ncurses::mvprintw(ncurses::LINES - 2, 0, "F1 to exit");
     ncurses::refresh();
 
-    /* Get the screen bounds */
-    let mut max_x = 0;
-    let mut max_y = 0;
-    ncurses::getmaxyx(ncurses::stdscr, &mut max_y, &mut max_x);
+    /* Post the menu */
+    ncurses::post_menu(my_menu);
+    ncurses::wrefresh(my_menu_win);
 
-    /* Start in the center */
-    let mut start_y = (max_y - WINDOW_HEIGHT) / 2;
-    let mut start_x = (max_x - WINDOW_WIDTH) / 2;
-    let mut win = create_win(start_y, start_x);
-    
     let mut ch = ncurses::getch();
     while ch != ncurses::KEY_F(1) {
         match ch {
-            ncurses::KEY_LEFT => {
-                start_x -= 1;
-                destroy_win(win);
-                win = create_win(start_y, start_x);
-            },
-            ncurses::KEY_RIGHT => {
-                start_x += 1;
-                destroy_win(win);
-                win = create_win(start_y, start_x);
-            },
             ncurses::KEY_UP => {
-                start_y -= 1;
-                destroy_win(win);
-                win = create_win(start_y, start_x);
+                ncurses::menu_driver(my_menu, ncurses::REQ_UP_ITEM);
             },
             ncurses::KEY_DOWN => {
-                start_y += 1;
-                destroy_win(win);
-                win = create_win(start_y, start_x);
+                ncurses::menu_driver(my_menu, ncurses::REQ_UP_ITEM);
+            },
+            10 => { /* Enter key */
+                ncurses::mv(20, 0);
+                ncurses::clrtoeol();
+                ncurses::mvprintw(20, 0, &format!("Item selected is: {}", ncurses::item_name(ncurses::current_item(my_menu)))[..]);
+                ncurses::pos_menu_cursor(my_menu);
             },
             _ => {}
         }
+        ncurses::wrefresh(my_menu_win);
         ch = ncurses::getch();
     }
+
+    ncurses::unpost_menu(my_menu);
+
+    /* Free items */
+    for &item in items.iter() {
+        free_item(item);
+    }
+
+    ncurses::free_menu(my_menu);
 
     ncurses::endwin();
 }
 
-fn create_win(start_y: i32, start_x: i32) -> ncurses::WINDOW {
-    let win = ncurses::newwin(WINDOW_HEIGHT, WINDOW_WIDTH, start_y, start_x);
-    ncurses::box_(win, 0, 0);
-    ncurses::wrefresh(win);
-    win
+#[cfg(not(feature="menu"))]
+fn main() {
+    println!("Hello world");
 }
 
-fn destroy_win(win: ncurses::WINDOW) {
-    let ch = ' ' as ncurses::chtype;
-    ncurses::wborder(win, ch, ch, ch, ch, ch, ch, ch, ch);
-    ncurses::wrefresh(win);
-    ncurses::delwin(win);
-}
