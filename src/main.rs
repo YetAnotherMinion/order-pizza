@@ -262,5 +262,35 @@ fn open_file() -> fs::File {
 }
 
 fn main() {
+    let mut pager = Pager::new();
+    pager.initialize();
 
+    /* Read the whole file */
+    while pager.file_reader.peek().is_some() {
+        /* Read a word at a time */
+        let (word, leftover) = pager.read_word();
+        let attr = pager.highlight_word(word.as_ref());
+        let leftover_attr = pager.highlight_word(format!("{}", leftover).as_ref());
+
+        /* Get the current position on the screen */
+        ncurses::getyx(ncurses::stdscr, &mut pager.cur_y, &mut pager.cur_x);
+
+        if pager.cur_y == (pager.screen_height - 1) {
+            /* Status bar at the bottom */
+            prompt();
+
+            /* Once a key is pressed, clear the screen and continue */
+            ncurses::clear();
+            ncurses::mv(0,0);
+        } else {
+            ncurses::attron(attr);
+            ncurses::printw(word.as_ref());
+            ncurses::attroff(attr);
+
+            ncurses::attron(leftover_attr);
+            ncurses::addch(leftover as ncurses::chtype);
+            ncurses::attroff(leftover_attr);
+        }
+    }
 }
+
